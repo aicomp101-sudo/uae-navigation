@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>بوصلة الإمارات السيادية</title>
+    <script src='https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.css' rel='stylesheet' />
+    <style>
+        :root { --uae-red: #EF3340; --uae-green: #00843D; --blue: #007AFF; --gold: #D4AF37; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Arial', sans-serif; background: #000; overflow: hidden; }
+        
+        /* شاشة الافتتاحية */
+        #splash { position: fixed; top:0; left:0; width:100%; height:100%; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #splash img { width: 85%; max-width: 380px; border-radius: 20px; border: 3px solid var(--gold); margin-bottom: 25px; }
+        #splash h1 { color: white; font-size: 32px; font-weight: bold; margin: 0; }
+
+        /* شاشة اللغة */
+        #langScreen { position: fixed; top:0; left:0; width:100%; height:100%; background: #f4f4f7; z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .lang-card { width: 85%; max-width: 320px; padding: 25px; background: white; border-radius: 20px; text-align: center; cursor: pointer; margin: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .lang-card h2 { margin: 0; color: #333; }
+
+        /* الخريطة */
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; display: none; }
+        .ui-panel { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 440px; background: rgba(255,255,255,0.98); backdrop-filter: blur(15px); border-radius: 28px; padding: 25px; box-shadow: 0 15px 50px rgba(0,0,0,0.3); z-index: 8000; display: none; text-align: center; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 20px; border: none; border-radius: 18px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-send { background: var(--uae-green); color: white; }
+        .btn-here { background: var(--blue); color: white; }
+        .btn-start { background: var(--uae-red); color: white; }
+        .btn-finish { background: #1c1c1e; color: white; }
+    </style>
+</head>
+<body dir="rtl">
+
+    <div id="splash">
+        <img src="https://media.gettyimages.com/id/1149313886/photo/abu-dhabi-united-arab-emirates-crown-prince-of-abu-dhabi-and-deputy-supreme-commander-of-the.jpg?s=612x612&w=0&k=20&c=663C_z_70Uf26YQ299_2N046Y7VfB7nI3H0e7X95V4A=" alt="MBZ">
+        <h1>لا تشلّون هم</h1>
+    </div>
+
+    <div id="langScreen">
+        <div class="lang-card" onclick="startApp('ar')"><h2>العربية</h2></div>
+        <div class="lang-card" onclick="startApp('en')"><h2>English</h2></div>
+    </div>
+
+    <div id="map"></div>
+    <div class="ui-panel" id="mainPanel">
+        <div id="statusLabel" style="font-weight: bold; margin-bottom: 10px;">المرحلة 1: اطلب الموقع</div>
+        <button id="sendBtn" class="btn btn-send" onclick="handleSend()">📲 إرسال رابط (أين أنت؟)</button>
+        <button id="hereBtn" class="btn btn-here" style="display:none;" onclick="handleHere()">📍 أنا هنا (تأكيد الموقع)</button>
+        <button id="startBtn" class="btn btn-start" style="display:none;" onclick="handleStart()">🚀 ابدأ الملاحة للوصول</button>
+        <button id="finishBtn" class="btn btn-finish" style="display:none;" onclick="handleFinish()">🏁 تم الوصول / إنهاء</button>
+    </div>
+
+<script>
+    let lang = 'ar';
+    let map;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isReceiver = urlParams.has('session');
+
+    setTimeout(() => {
+        document.getElementById('splash').style.display = 'none';
+        document.getElementById('langScreen').style.display = 'flex';
+    }, 2000);
+
+    function startApp(selectedLang) {
+        lang = selectedLang;
+        document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.getElementById('langScreen').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        document.getElementById('mainPanel').style.display = 'block';
+        
+        map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://demotiles.maplibre.org/style.json',
+            center: [54.3773, 24.4539],
+            zoom: 8
+        });
+
+        if (isReceiver) {
+            document.getElementById('sendBtn').style.display = 'none';
+            document.getElementById('hereBtn').style.display = 'flex';
+            document.getElementById('statusLabel').innerText = lang === 'ar' ? "الطرف الآخر يسأل عن موقعك" : "Awaiting your location...";
+        }
+    }
+
+    function handleSend() {
+        const id = Math.random().toString(36).substr(2, 9);
+        const url = window.location.origin + window.location.pathname + "?session=" + id;
+        const msg = lang === 'ar' ? `لا تشلّون هم، افتح الرابط وحدد موقعك بدقة لأصل إليك: ${url}` : `Don't worry, pin your location so I can find you: ${url}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        
+        setTimeout(() => {
+            document.getElementById('sendBtn').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'flex';
+            document.getElementById('statusLabel').innerText = lang === 'ar' ? "تم تحديد الموقع!" : "Location Received!";
+            const target = [55.2744, 25.1972];
+            new maplibregl.Marker({color: 'red'}).setLngLat(target).addTo(map);
+            map.flyTo({center: target, zoom: 15});
+        }, 4000);
+    }
+
+    function handleHere() {
+        document.getElementById('hereBtn').style.display = 'none';
+        alert(lang === 'ar' ? "تم تأكيد موقعك!" : "Confirmed!");
+    }
+
+    function handleStart() {
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('finishBtn').style.display = 'flex';
+    }
+
+    function handleFinish() {
+        if(confirm("إنهاء؟")) location.href = window.location.origin + window.location.pathname;
+    }
+</script>
+</body>
+</html>
